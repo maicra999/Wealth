@@ -1,0 +1,11 @@
+name: ${name}
+version: ${version}
+main: cc.maicra999.wealth.Wealth
+api-version: "26.1"
+
+dependencies:
+  server:
+    ServiceIO:
+      load: BEFORE
+      required: true
+
