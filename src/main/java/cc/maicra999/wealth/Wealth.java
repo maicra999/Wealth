@@ -309,7 +309,7 @@ public class Wealth extends JavaPlugin implements Listener {
         return coinItem.clone();
     }
 
-    class GiveCoinCommand implements BasicCommand {
+    static class GiveCoinCommand implements BasicCommand {
 
         @Override
         public @Nullable String permission() {

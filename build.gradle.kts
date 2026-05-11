@@ -1,7 +1,6 @@
 plugins {
     java
     alias(libs.plugins.spotless)
-    alias(libs.plugins.paperweight.userdev)
 }
 
 /* Project Properties */
@@ -9,7 +8,6 @@ val projectGroup        = project.property("project_group")     as String
 val projectId           = project.property("project_id")        as String
 val projectVersion      = project.property("project_version")   as String
 val projectName         = project.property("project_name")      as String
-val minecraftVersion    = project.property("minecraft_version") as String
 
 group = projectGroup
 version = projectVersion
@@ -30,12 +28,12 @@ spotless {
 
 repositories {
     mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.thenextlvl.net/snapshots")
 }
 
 dependencies {
-    paperweight.paperDevBundle(minecraftVersion)
-
+    compileOnly(libs.paper.api)
     compileOnly(libs.service.io)
 }
 

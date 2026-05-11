@@ -1,11 +1,11 @@
 [versions]
 spotless = "8.2.1"
-paperweight-userdev = "2.0.0-beta.21"
+paper-api = "26.1.2.build.+"
 service-io = "3.0.0-pre11"
 
 [libraries]
+paper-api = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper-api" }
 service-io = { group = "net.thenextlvl", name = "service-io", version.ref = "service-io" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
-paperweight-userdev = { id = "io.papermc.paperweight.userdev", version.ref = "paperweight-userdev" }
