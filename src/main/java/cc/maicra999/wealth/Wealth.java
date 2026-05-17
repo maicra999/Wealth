@@ -13,6 +13,7 @@ import net.thenextlvl.service.economy.Account;
 import net.thenextlvl.service.economy.EconomyController;
 import net.thenextlvl.service.economy.TransactionResult;
 import net.thenextlvl.service.economy.currency.Currency;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
@@ -318,9 +319,10 @@ public class Wealth extends JavaPlugin implements Listener {
 
         @Override
         public void execute(@NonNull CommandSourceStack source, String[] args) {
-            if (args.length != 1) {
+            if (args.length < 1) {
                 source.getSender()
-                        .sendMessage(Component.text("使用法: /givecoin <数量>").color(Colors.RED_LIGHT));
+                        .sendMessage(
+                                Component.text("使用法: /givecoin <数量> [プレイヤー]").color(Colors.RED_LIGHT));
                 return;
             }
 
@@ -338,6 +340,24 @@ public class Wealth extends JavaPlugin implements Listener {
                 return;
             }
 
+            Player player;
+            if (args.length >= 2) {
+                player = Bukkit.getServer().getPlayer(args[1]);
+                if (player == null) {
+                    source.getSender()
+                            .sendMessage(Component.text("プレイヤーが見つかりません").color(Colors.RED_LIGHT));
+                    return;
+                }
+            } else {
+                if (source.getSender() instanceof Player p) {
+                    player = p;
+                } else {
+                    source.getSender()
+                            .sendMessage(Component.text("プレイヤーを指定してください").color(Colors.RED_LIGHT));
+                    return;
+                }
+            }
+
             List<ItemStack> stacks = new ArrayList<>();
             while (amount > 0) {
                 int stackAmount = Math.min(amount, 64);
@@ -347,14 +367,12 @@ public class Wealth extends JavaPlugin implements Listener {
                 amount -= stackAmount;
             }
 
-            if (source.getSender() instanceof Player player) {
-                for (ItemStack stack : stacks) {
-                    player.give(stack);
-                }
-                player.sendMessage(Component.text(args[0] + "コインを付与しました").color(Colors.GREEN));
-            } else {
-                source.getSender().sendMessage(Component.text("コインを付与できません").color(Colors.RED_LIGHT));
+            for (ItemStack stack : stacks) {
+                player.give(stack);
             }
+
+            source.getSender()
+                    .sendMessage(Component.text(args[0] + "コインを付与しました").color(Colors.GREEN));
         }
     }
 }
