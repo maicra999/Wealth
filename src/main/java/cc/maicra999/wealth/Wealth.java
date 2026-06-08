@@ -4,6 +4,7 @@ import cc.maicra999.wealth.util.Colors;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.util.*;
@@ -13,10 +14,7 @@ import net.thenextlvl.service.economy.Account;
 import net.thenextlvl.service.economy.EconomyController;
 import net.thenextlvl.service.economy.TransactionResult;
 import net.thenextlvl.service.economy.currency.Currency;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -38,6 +36,8 @@ import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("UnstableApiUsage")
 public class Wealth extends JavaPlugin implements Listener {
+
+    private static final boolean INSTANT_COIN_MODE = true;
 
     private static final NamespacedKey COIN_ITEM_KEY = new NamespacedKey("wealth", "coin_item");
     private static final Component COIN_SYMBOL = Component.text("◎", Colors.MUSTARD);
@@ -90,30 +90,8 @@ public class Wealth extends JavaPlugin implements Listener {
             event.setCancelled(true);
             consumeHeldItem(player, item);
 
-            player.playSound(player, Sound.ITEM_BUNDLE_INSERT, 0.8f, 0.8f + RANDOM.nextFloat() * 0.4F);
-            player.playSound(
-                    player,
-                    Sound.BLOCK_NOTE_BLOCK_CHIME,
-                    0.3f,
-                    SOUND_PITCHES[(int) Math.floor(RANDOM.nextFloat() * SOUND_PITCHES.length)]);
-
-            economy.resolveAccount(player.getUniqueId()).thenAccept(optional -> {
-                if (optional.isEmpty()) {
-                    return;
-                }
-                Account account = optional.get();
-
-                Currency currency = economy.getCurrencyController().getDefaultCurrency();
-                TransactionResult result = account.deposit(amount, currency);
-
-                if (result.successful()) {
-                    showBalance(player, account);
-                } else {
-                    player.sendMessage(Component.text("コインの入金に失敗しました").color(Colors.RED_LIGHT));
-                    player.give(getCoinItem().asQuantity(amount));
-                }
-            });
-        } else {
+            addCoin(player, amount);
+        } else if (!INSTANT_COIN_MODE) {
             ItemStack mainItem = player.getInventory().getItemInMainHand();
             if (mainItem.isEmpty()
                     || mainItem.getPersistentDataContainer().has(COIN_ITEM_KEY, PersistentDataType.BOOLEAN)) {
@@ -124,6 +102,10 @@ public class Wealth extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
+        if (INSTANT_COIN_MODE) {
+            return;
+        }
+
         Player player = event.getPlayer();
         if (event.isSneaking()) {
             if (balanceViewTasks.containsKey(player.getUniqueId())) {
@@ -238,19 +220,46 @@ public class Wealth extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPickupItem(PlayerAttemptPickupItemEvent event) {
+        Player player = event.getPlayer();
+
         if (event.getItem()
                 .getItemStack()
                 .getPersistentDataContainer()
                 .has(COIN_ITEM_KEY, PersistentDataType.BOOLEAN)) {
-            if (coinTipShown.add(event.getPlayer().getUniqueId())) {
-                event.getPlayer()
-                        .sendMessage(Component.textOfChildren(
-                                Component.text("コインを手に持って"),
-                                Component.space(),
-                                Component.text("[使用する]", Colors.GRAY_LIGHT),
-                                Component.space(),
-                                Component.text("と、財布にしまうことができます")));
+            if (INSTANT_COIN_MODE) {
+                if (player.getGameMode() == GameMode.CREATIVE) {
+                    return;
+                }
+
+                event.setCancelled(true);
+                event.setFlyAtPlayer(true);
+
+                addCoin(player, event.getItem().getItemStack().getAmount());
+
+                Bukkit.getScheduler().runTask(this, event.getItem()::remove);
+            } else if (coinTipShown.add(player.getUniqueId())) {
+                player.sendMessage(Component.textOfChildren(
+                        Component.text("コインを手に持って"),
+                        Component.space(),
+                        Component.text("[使用する]", Colors.GRAY_LIGHT),
+                        Component.space(),
+                        Component.text("と、財布にしまうことができます")));
             }
+        }
+    }
+
+    @EventHandler
+    public void onInventorySlotChange(PlayerInventorySlotChangeEvent event) {
+        if (!INSTANT_COIN_MODE) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        ItemStack item = event.getNewItemStack();
+        if (player.getGameMode() != GameMode.CREATIVE
+                && item.getPersistentDataContainer().has(COIN_ITEM_KEY, PersistentDataType.BOOLEAN)) {
+            player.getInventory().setItem(event.getSlot(), null);
+            addCoin(player, item.getAmount());
         }
     }
 
@@ -265,6 +274,32 @@ public class Wealth extends JavaPlugin implements Listener {
 
         holdThresholds.remove(player.getUniqueId());
         coinTipShown.remove(player.getUniqueId());
+    }
+
+    private void addCoin(Player player, int amount) {
+        player.playSound(player, Sound.ITEM_BUNDLE_INSERT, 0.8f, 0.8f + RANDOM.nextFloat() * 0.4F);
+        player.playSound(
+                player,
+                Sound.BLOCK_NOTE_BLOCK_CHIME,
+                0.3f,
+                SOUND_PITCHES[(int) Math.floor(RANDOM.nextFloat() * SOUND_PITCHES.length)]);
+
+        economy.resolveAccount(player.getUniqueId()).thenAccept(optional -> {
+            if (optional.isEmpty()) {
+                return;
+            }
+            Account account = optional.get();
+
+            Currency currency = economy.getCurrencyController().getDefaultCurrency();
+            TransactionResult result = account.deposit(amount, currency);
+
+            if (result.successful()) {
+                showBalance(player, account);
+            } else {
+                player.sendMessage(Component.text("コインの入金に失敗しました").color(Colors.RED_LIGHT));
+                player.give(getCoinItem().asQuantity(amount));
+            }
+        });
     }
 
     private CompletableFuture<Void> showBalance(Player player) {
