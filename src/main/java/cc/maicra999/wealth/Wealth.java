@@ -102,10 +102,6 @@ public class Wealth extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
-        if (INSTANT_COIN_MODE) {
-            return;
-        }
-
         Player player = event.getPlayer();
         if (event.isSneaking()) {
             if (balanceViewTasks.containsKey(player.getUniqueId())) {
@@ -134,14 +130,16 @@ public class Wealth extends JavaPlugin implements Listener {
                         return;
                     }
 
-                    int value = holdThresholds.merge(player.getUniqueId(), -1, Integer::sum);
-                    if (value > 0) {
-                        holdTicks++;
-                    } else {
-                        holdTicks = 0;
+                    if (!INSTANT_COIN_MODE) {
+                        int value = holdThresholds.merge(player.getUniqueId(), -1, Integer::sum);
+                        if (value > 0) {
+                            holdTicks++;
+                        } else {
+                            holdTicks = 0;
+                        }
                     }
 
-                    if (holdTicks > WITHDRAW_START_TICKS) {
+                    if (!INSTANT_COIN_MODE && holdTicks > WITHDRAW_START_TICKS) {
                         ItemStack mainItem = player.getInventory().getItemInMainHand();
 
                         if (mainItem.isEmpty()
@@ -180,7 +178,7 @@ public class Wealth extends JavaPlugin implements Listener {
                         }
                     } else {
                         ticks++;
-                        if (ticks < 60) {
+                        if (INSTANT_COIN_MODE || ticks < 60) {
                             showBalance(player, account);
                         } else if (ticks < 120) {
                             ItemStack mainItem = player.getInventory().getItemInMainHand();
